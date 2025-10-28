@@ -1,43 +1,62 @@
-# CDS View to Mermaid Visualizer
+# ABAP and CDS Visualizer
 
-A simple, zero-dependency, single-page web tool to automatically generate [Mermaid-JS](https://mermaid-js.github.io/mermaid/#/) flowchart diagrams from ABAP CDS View entity definitions.
+A simple, zero-dependency, single-page web tool to automatically generate [Mermaid-JS](https://mermaid-js.github.io/mermaid/#/) diagrams from ABAP CDS View and Class definitions.
 
-This utility helps developers quickly visualize the hierarchy and dependencies between different CDS views, making complex data models easier to understand.
+This utility helps developers quickly visualize the hierarchy and dependencies for both CDS views and the structure of ABAP classes.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-
-
 ## ✨ Features
 
+*   **Dual-Mode Visualization:** Switch between dedicated tabs for CDS Entities and ABAP Classes.
 *   **Zero Setup:** It's a single, self-contained `html` file. No installation or server required.
-*   **Instant Visualization:** See the relationship diagram update in real-time as you edit the code.
-*   **Intelligent Parsing:** Automatically detects relationships from `FROM` and `JOIN` clauses.
-*   **Code Export:** Easily copy the generated Mermaid syntax for use in documentation, wikis, or other Markdown files (like this one!).
-*   **Clean & Modern UI:** A simple, intuitive interface that's easy to use.
+*   **Instant Visualization:** See the diagram update in real-time as you edit the code.
+*   **Intelligent Parsing:**
+    *   For **CDS Views**, automatically detects relationships from `FROM` and `JOIN` clauses.
+    *   For **ABAP Classes**, automatically detects inheritance (`INHERITING FROM`) and method definitions.
+*   **Code Export:** Easily copy the generated Mermaid syntax for use in documentation or wikis.
+*   **Clean & Modern UI:** A simple, tabbed interface that's easy to use.
 
 ## 🚀 How to Use
 
-1.  **Download:** Get the `cds-visualizer.html` file from this repository.
-2.  **Open:** Open the file in any modern web browser (Chrome, Firefox, Edge, Safari).
-3.  **Paste:** Copy your CDS view definitions and paste them into the "Input CDS Definitions" text area.
-4.  **Visualize:** Click the **"Visualize Relationships"** button.
+1.  **Download:** Get the `abap-cds-visualizer.html` file from this repository.
+2.  **Open:** Open the file in any modern web browser.
+3.  **Select Tab:** Choose the "CDS Entities" or "ABAP Classes" tab based on the code you want to visualize.
+4.  **Paste:** Copy your definitions and paste them into the input text area.
+5.  **Visualize:** The diagram will be generated automatically. You can also click the **"Visualize Relationships"** button to refresh.
 
-The tool will immediately generate the Mermaid syntax in the second text box and render the visual flowchart at the bottom of the page.
+## 📋 Examples
 
-## 📋 Example
+### CDS View Example
 
-This example demonstrates how the tool maps parent-child relationships between three CDS views.
+This example demonstrates how the tool maps dependencies from `JOIN` clauses.
 
 #### Input CDS Code
 
-Paste this into the tool:
+```abap
+define view entity ProductSales
+  as select from snwd_so as SalesOrder
+  join snwd_so_i as Item on SalesOrder.node_key = Item.parent_key
+  join snwd_pd as Product on Item.product_guid = Product.node_key
+{
+  key SalesOrder.so_id as SalesOrder,
+  Product.product_id as Product,
+  Product.short_descr as ProductName
+}
+```
+
+### ABAP Class Example
+
+This example shows a simple inheritance structure and method definitions.
+
+#### Input ABAP Code
 
 ```abap
-define view entity C_First
-  as select from I_CustomerLineItems
+class lcl_child definition inheriting from lcl_parent.
+  methods: child_method.
+endclass.
 
-define view entity I_CustomerLineItems
-  as select from I_CustomerLineItem      as _CustomerLineItem
-  left outer to one join  I_BusinessPartnerAmount 
-
+class lcl_parent definition.
+  methods: parent_method.
+endclass.
+```
