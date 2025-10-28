@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABAP Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: #f4f6f9;
+            color: #212529;
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            margin: 0;
+            padding: 25px;
+        }
+        main {
+            background-color: #ffffff;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            max-width: 950px;
+            width: 100%;
+        }
+        h1, h2 {
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 12px;
+            margin-top: 1.5em;
+            color: #343a40;
+            font-weight: 700;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: none;
+            margin-top: 0;
+        }
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #ced4da;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            min-height: 220px;
+            margin-top: 10px;
+            resize: vertical;
+        }
+        button#runBtn {
+            display: block;
+            width: 100%;
+            padding: 14px 20px;
+            margin: 25px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #34495e;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        button#runBtn:hover {
+            background-color: #2c3e50;
+        }
+        button#runBtn:active {
+            transform: scale(0.99);
+        }
+        #diagramWrapper {
+            text-align: center;
+            padding: 20px 0;
+            border: 1px dashed #ced4da;
+            border-radius: 5px;
+            margin-top: 15px;
+            min-height: 100px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 1em;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            font-size: 16px;
+            font-weight: 700;
+            color: #495057;
+            border-bottom: 3px solid transparent;
+            transition: color 0.2s ease, border-bottom-color 0.2s ease;
+        }
+        .tab-button.active {
+            color: #34495e;
+            border-bottom-color: #34495e;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <main>
+        <h1>ABAP Visualizer</h1>
+
+        <div class="tabs">
+            <button class="tab-button active" data-tab="cds">CDS Entities</button>
+            <button class="tab-button" data-tab="abap">ABAP Classes</button>
+        </div>
+
+        <div id="cds" class="tab-content active">
+            <section>
+                <h2>Input CDS Definitions</h2>
+                <textarea id="cdsInputEl" placeholder="e.g., define view entity MyView as select from OtherView...">define view entity ProductSales
+  as select from snwd_so as SalesOrder
+  join snwd_so_i as Item on SalesOrder.node_key = Item.parent_key
+  join snwd_pd as Product on Item.product_guid = Product.node_key
+{
+  key SalesOrder.so_id as SalesOrder,
+  Product.product_id as Product,
+  Product.short_descr as ProductName
+}
+</textarea>
+            </section>
+        </div>
+
+        <div id="abap" class="tab-content">
+            <section>
+                <h2>Input ABAP Class Definitions</h2>
+                <textarea id="abapInputEl" placeholder="e.g., class lcl_sub definition inheriting from lcl_super.">class lcl_child definition inheriting from lcl_parent.
+endclass.
+
+class lcl_parent definition.
+endclass.
+</textarea>
+            </section>
+        </div>
+
+        <button id="runBtn">Visualize Relationships</button>
+
+        <section>
+            <h2>Mermaid Syntax</h2>
+            <textarea id="mermaidOutputEl" readonly></textarea>
+        </section>
+
+        <section>
+            <h2>Live Diagram</h2>
+            <div id="diagramWrapper" class="mermaid"></div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'default'
+            });
+
+            const cdsInputEl = document.getElementById('cdsInputEl');
+            const abapInputEl = document.getElementById('abapInputEl');
+            const outputEl = document.getElementById('mermaidOutputEl');
+            const diagramEl = document.getElementById('diagramWrapper');
+            const runBtn = document.getElementById('runBtn');
+            const tabs = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            const switchTab = (tab) => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                const tabId = tab.dataset.tab;
+                document.getElementById(tabId).classList.add('active');
+                tab.classList.add('active');
+                processActiveTab();
+            };
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => switchTab(tab));
+            });
+
+            const processCDS = () => {
+                let rawText = cdsInputEl.value;
+
+                // Remove comments
+                rawText = rawText.replace(/\/\/.*_comment_special_character_/g, ''); // Remove // comments
+                rawText = rawText.replace(/\/\*[
+\s\S]*?\*\//g, ''); // Remove /* */ comments
+
+                const graphLinks = new Set();
+                const allNodes = new Set();
+                
+                const definitionBlocks = rawText.split(/\s*define\s+view\s+entity\s+/i);
+                const dependencyRegex = /\b(?:from|join)\s+([a-zA-Z0-9_]+)/gi;
+
+                for (let i = 1; i < definitionBlocks.length; i++) {
+                    const block = definitionBlocks[i].trim();
+                    if (!block) continue;
+
+                    const entityName = block.split(/[\s\n]/)[0].trim();
+                    if (!entityName) continue;
+                    
+                    allNodes.add(entityName);
+
+                    let match;
+                    while ((match = dependencyRegex.exec(block)) !== null) {
+                        const dependency = match[1];
+                        allNodes.add(dependency);
+                        graphLinks.add(`    ${entityName} --> ${dependency};`);
+                    }
+                }
+
+                let mermaidGraph = "graph TD;\n";
+                mermaidGraph += "    classDef default fill:#ecf0f1,stroke:#7f8c8d,stroke-width:2px,color:#2c3e50;\n\n";
+                
+                if (graphLinks.size > 0) {
+                    mermaidGraph += [...graphLinks].join('\n') + '\n\n';
+                } else {
+                    mermaidGraph += "    A[No valid relationships found in input.];\n";
+                }
+                
+                outputEl.value = mermaidGraph;
+                renderDiagram(mermaidGraph);
+            };
+
+            const processABAP = () => {
+                const rawText = abapInputEl.value;
+                const classData = {};
+
+                const classBlockRegex = /class\s+([a-zA-Z0-9_]+)\s+definition([\s\S]*?)endclass/gi;
+                let blockMatch;
+
+                while ((blockMatch = classBlockRegex.exec(rawText)) !== null) {
+                    const className = blockMatch[1];
+                    const classBlockContent = blockMatch[2];
+
+                    if (!classData[className]) {
+                        classData[className] = { methods: [] };
+                    }
+
+                    const inheritanceRegex = /inheriting\s+from\s+([a-zA-Z0-9_]+)/i;
+                    const inheritanceMatch = classBlockContent.match(inheritanceRegex);
+                    if (inheritanceMatch) {
+                        const parentName = inheritanceMatch[1];
+                        classData[className].parent = parentName;
+                        if (!classData[parentName]) {
+                            classData[parentName] = { methods: [] };
+                        }
+                    }
+
+                    const methodRegex = /\b(?:class-)?methods\s+([a-zA-Z0-9_]+)/gi;
+                    let methodMatch;
+                    while ((methodMatch = methodRegex.exec(classBlockContent)) !== null) {
+                        classData[className].methods.push(methodMatch[1]);
+                    }
+                }
+
+                let mermaidGraph = "classDiagram\n";
+                const allClasses = Object.keys(classData);
+
+                if (allClasses.length > 0) {
+                    for (const className of allClasses) {
+                        mermaidGraph += `    class ${className} {
+`;
+                        if (classData[className].methods.length > 0) {
+                            for (const methodName of classData[className].methods) {
+                                mermaidGraph += `        +${methodName}()\n`;
+                            }
+                        }
+                        mermaidGraph += `    }\n`;
+
+                        if (classData[className].parent) {
+                            mermaidGraph += `    ${classData[className].parent} <|-- ${className}\n`;
+                        }
+                    }
+                } else {
+                    mermaidGraph += "    A[No valid classes found in input.];\n";
+                }
+                
+                outputEl.value = mermaidGraph;
+                renderDiagram( mermaidGraph );
+            };
+
+            const renderDiagram = async (code) => {
+                try {
+                    const { svg } = await mermaid.render('graphDiv', code);
+                    diagramEl.innerHTML = svg;
+                } catch (e) {
+                    diagramEl.innerHTML = `Diagram render error: ${e.message}`;
+                }
+            };
+
+            const processActiveTab = () => {
+                const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+                if (activeTab === 'cds') {
+                    processCDS();
+                } else if (activeTab === 'abap') {
+                    processABAP();
+                }
+            };
+
+            runBtn.addEventListener('click', processActiveTab);
+            processActiveTab(); // Initial processing
+        });
+    </script>
+</body>
+</html>
