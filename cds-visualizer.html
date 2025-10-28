@@ -87,15 +87,7 @@
 
         <section>
             <h2>Input CDS Definitions</h2>
-            <textarea id="cdsInputEl" placeholder="e.g., define view entity MyView as select from OtherView...">define view entity C_NO_StRpCACustLineItemCube
-  as select from I_NO_CACustomerLineItem
-  
-define view entity I_NO_CACustomerLineItem
-  as select from I_NO_StRpCACustomerLineItem      as _CustomerLineItem
-  left outer to one join  I_NO_BusinessPartnerAmount on _CustomerLineItem.BusinessPartner = I_NO_BusinessPartnerAmount.BusinessPartner
-  
-define view entity I_NO_BusinessPartnerAmount
-  as select from I_CADocumentBPItem
+            <textarea id="cdsInputEl" placeholder="e.g., define view entity MyView as select from OtherView...">
 </textarea>
         </section>
 
