@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDS Entity Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: #f4f6f9;
+            color: #212529;
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            margin: 0;
+            padding: 25px;
+        }
+        main {
+            background-color: #ffffff;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            max-width: 950px;
+            width: 100%;
+        }
+        h1, h2 {
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 12px;
+            margin-top: 1.5em;
+            color: #343a40;
+            font-weight: 700;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: none;
+            margin-top: 0;
+        }
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #ced4da;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            min-height: 220px;
+            margin-top: 10px;
+            resize: vertical;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 14px 20px;
+            margin: 25px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #34495e;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        button:hover {
+            background-color: #2c3e50;
+        }
+        button:active {
+            transform: scale(0.99);
+        }
+        #diagramWrapper {
+            text-align: center;
+            padding: 20px 0;
+            border: 1px dashed #ced4da;
+            border-radius: 5px;
+            margin-top: 15px;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+
+    <main>
+        <h1>CDS Entity Visualizer</h1>
+
+        <section>
+            <h2>Input CDS Definitions</h2>
+            <textarea id="cdsInputEl" placeholder="e.g., define view entity MyView as select from OtherView...">define view entity C_NO_StRpCACustLineItemCube
+  as select from I_NO_CACustomerLineItem
+  
+define view entity I_NO_CACustomerLineItem
+  as select from I_NO_StRpCACustomerLineItem      as _CustomerLineItem
+  left outer to one join  I_NO_BusinessPartnerAmount on _CustomerLineItem.BusinessPartner = I_NO_BusinessPartnerAmount.BusinessPartner
+  
+define view entity I_NO_BusinessPartnerAmount
+  as select from I_CADocumentBPItem
+</textarea>
+        </section>
+
+        <button id="runBtn">Visualize Relationships</button>
+
+        <section>
+            <h2>Mermaid Syntax</h2>
+            <textarea id="mermaidOutputEl" readonly></textarea>
+        </section>
+
+        <section>
+            <h2>Live Diagram</h2>
+            <div id="diagramWrapper" class="mermaid"></div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            mermaid.initialize({ 
+                startOnLoad: false,
+                theme: 'default'
+            });
+
+            const inputEl = document.getElementById('cdsInputEl');
+            const outputEl = document.getElementById('mermaidOutputEl');
+            const diagramEl = document.getElementById('diagramWrapper');
+            const runBtn = document.getElementById('runBtn');
+
+            const processCDS = () => {
+                const rawText = inputEl.value;
+                const graphLinks = new Set();
+                const allNodes = new Set();
+                
+                const definitionBlocks = rawText.split(/\s*define\s+view\s+entity\s+/i);
+                const dependencyRegex = /\b(?:from|join)\s+([a-zA-Z0-9_]+)/gi;
+
+                for (let i = 1; i < definitionBlocks.length; i++) {
+                    const block = definitionBlocks[i].trim();
+                    if (!block) continue;
+
+                    const entityName = block.split(/[\s\n]/)[0].trim();
+                    if (!entityName) continue;
+                    
+                    allNodes.add(entityName);
+
+                    let match;
+                    while ((match = dependencyRegex.exec(block)) !== null) {
+                        const dependency = match[1];
+                        allNodes.add(dependency);
+                        graphLinks.add(`    ${entityName} --> ${dependency};`);
+                    }
+                }
+
+                let mermaidGraph = "graph TD;\n";
+                mermaidGraph += "    classDef cdsView fill:#ecf0f1,stroke:#7f8c8d,stroke-width:2px,color:#2c3e50;\n\n";
+                
+                if (graphLinks.size > 0) {
+                    mermaidGraph += [...graphLinks].join('\n') + '\n\n';
+                    mermaidGraph += `    class ${[...allNodes].join(',')} cdsView;\n`;
+                } else {
+                    mermaidGraph += "    A[No valid relationships found in input.];\n    class A cdsView;";
+                }
+                
+                outputEl.value = mermaidGraph;
+                renderDiagram(mermaidGraph);
+            };
+
+            const renderDiagram = async (code) => {
+                try {
+                    const { svg } = await mermaid.render('graphDiv', code);
+                    diagramEl.innerHTML = svg;
+                } catch (e) {
+                    diagramEl.innerHTML = `Diagram render error: ${e.message}`;
+                }
+            };
+
+            runBtn.addEventListener('click', processCDS);
+            processCDS();
+        });
+    </script>
+</body>
+</html>
